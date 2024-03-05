@@ -31,6 +31,9 @@
 #include "ompi/mca/sharedfp/sharedfp.h"
 #include "ompi/mca/common/ompio/common_ompio.h"
 #include <semaphore.h>
+#if defined(__FreeBSD__) || defined(__NetBSD__) || defined(__OpenBSD__)
+#include <sys/stat.h>
+#endif
 
 BEGIN_C_DECLS
 

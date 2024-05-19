@@ -20,6 +20,7 @@
  * Copyright (c) 2022      IBM Corporation.  All rights reserved.
  * Copyright (c) 2023      Triad National Security, LLC. All rights
  *                         reserved.
+ * Copyright (c) 2024      Advanced Micro Devices, Inc. All Rights reserved.
  * $COPYRIGHT$
  *
  * Additional copyrights may follow
@@ -169,6 +170,22 @@ static int smcuda_register(void)
     mca_btl_smcuda_param_register_uint("fifo_lazy_free", 120, OPAL_INFO_LVL_5,
                                        &mca_btl_smcuda_component.fifo_lazy_free);
 
+    /* Delay the creation of the IPC stream and events. This has the advantage of also
+     * working in scenarios where the user did not set the accelerator device
+     * before MPI_Init AND the stream/event has internally some reference to the device
+     * used at that time */
+    mca_btl_smcuda_component.accelerator_delayed_ipc_init = 1;
+    (void) mca_base_component_var_register(&mca_btl_smcuda_component.super.btl_version, "delayed_stream_init",
+                                           "Delay the initialization of the ipc stream and internal events",
+                                           MCA_BASE_VAR_TYPE_INT, NULL, 0, 0, OPAL_INFO_LVL_5,
+                                           MCA_BASE_VAR_SCOPE_READONLY, &mca_btl_smcuda_component.accelerator_delayed_ipc_init);
+
+    mca_btl_smcuda_component.accelerator_max_ipc_events = 400;
+    (void) mca_base_component_var_register(&mca_btl_smcuda_component.super.btl_version, "max_ipc_events",
+                                           "Number of events created by the smcuda components internally",
+                                           MCA_BASE_VAR_TYPE_INT, NULL, 0, 0, OPAL_INFO_LVL_5,
+                                           MCA_BASE_VAR_SCOPE_READONLY, &mca_btl_smcuda_component.accelerator_max_ipc_events);
+
     /* default number of extra procs to allow for future growth */
     mca_btl_smcuda_param_register_int("sm_extra_procs", 0, OPAL_INFO_LVL_9,
                                       &mca_btl_smcuda_component.sm_extra_procs);
@@ -181,8 +198,7 @@ static int smcuda_register(void)
 
     /* Lower priority when CUDA support is not requested */
     if (0 != strcmp(opal_accelerator_base_selected_component.base_version.mca_component_name, "null")) {
-
-        mca_btl_smcuda.super.btl_exclusivity = MCA_BTL_EXCLUSIVITY_HIGH + 1;
+        mca_btl_smcuda.super.btl_exclusivity = MCA_BTL_EXCLUSIVITY_DEFAULT;
     } else {
         mca_btl_smcuda.super.btl_exclusivity = MCA_BTL_EXCLUSIVITY_LOW;
     }

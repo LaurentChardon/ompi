@@ -28,7 +28,7 @@ Open MPI offers two flavors of CUDA support:
       # Check if ucx was built with CUDA support
       shell$ ucx_info -v
 
-      # configured with: --build=powerpc64le-redhat-linux-gnu --host=powerpc64le-redhat-linux-gnu --program-prefix= --disable-dependency-tracking --prefix=/usr --exec-prefix=/usr --bindir=/usr/bin --sbindir=/usr/sbin --sysconfdir=/etc --datadir=/usr/share --includedir=/usr/include --libdir=/usr/lib64 --libexecdir=/usr/libexec --localstatedir=/var --sharedstatedir=/var/lib --mandir=/usr/share/man --infodir=/usr/share/info --disable-optimizations --disable-logging --disable-debug --disable-assertions --enable-mt --disable-params-check --enable-cma --without-cuda --without-gdrcopy --with-verbs --with-cm --with-knem --with-rdmacm --without-rocm --without-xpmem --without-ugni --without-java
+      # configured with: --build=powerpc64le-redhat-linux-gnu --host=powerpc64le-redhat-linux-gnu --program-prefix= --disable-dependency-tracking --prefix=/usr --exec-prefix=/usr --bindir=/usr/bin --sbindir=/usr/sbin --sysconfdir=/etc --datadir=/usr/share --includedir=/usr/include --libdir=/usr/lib64 --libexecdir=/usr/libexec --localstatedir=/var --sharedstatedir=/var/lib --mandir=/usr/share/man --infodir=/usr/share/info --disable-optimizations --disable-logging --disable-debug --disable-assertions --enable-mt --disable-params-check --enable-cma --without-cuda --without-gdrcopy --with-verbs --with-cm --with-knem --with-rdmacm --without-rocm --without-xpmem --without-java
 
    If you need to build ucx yourself to include CUDA support, please
    see the UCX documentation for `building ucx with Open MPI: <https://openucx.readthedocs.io/en/master/running.html#openmpi-with-ucx>`_
@@ -41,14 +41,16 @@ Open MPI offers two flavors of CUDA support:
       shell$ ./configure --prefix=/path/to/ucx-cuda-install --with-cuda=/usr/local/cuda --with-gdrcopy=/usr
 
       # Configure Open MPI this way
-      shell$ ./configure --with-cuda=/usr/local/cuda --with-cuda-libdir=/usr/local/cuda/lib64/stubs/ --with-ucx=/path/to/ucx-cuda-install <other configure params>
+      shell$ ./configure --with-cuda=/usr/local/cuda --with-ucx=/path/to/ucx-cuda-install <other configure params>
 
 #. Via internal Open MPI CUDA support
 
 Regardless of which flavor of CUDA support (or both) you plan to use,
 Open MPI should be configured using the ``--with-cuda=<path-to-cuda>``
-and ``--with-cuda-libdir=<path-to-libcuda.so>`` configure options to
-build CUDA support into Open MPI.
+configure option to build CUDA support into Open MPI. The configure
+script will automatically search the path given for ``libcuda.so``. If it cannot
+be found, please also pass ``--with-cuda-libdir``. For example:
+``--with-cuda=<path-to-cuda> --with-cuda-libdir=/usr/local/cuda/lib64/stubs``.
 
 Open MPI supports building with CUDA libraries and running on systems
 without CUDA libraries or hardware. In order to take advantage of
@@ -65,7 +67,7 @@ An example configure command would look like the following:
    .. code-block:: sh
 
       # Configure Open MPI this way
-      shell$ ./configure --with-cuda=/usr/local/cuda --with-cuda-libdir=/usr/local/cuda/lib64/stubs \
+      shell$ ./configure --with-cuda=/usr/local/cuda \
              --enable-mca-dso=btl-smcuda,rcache-rgpusm,rcache-gpusm,accelerator-cuda <other configure params>
 
 /////////////////////////////////////////////////////////////////////////
@@ -74,12 +76,15 @@ How do I verify that Open MPI has been built with CUDA support?
 ---------------------------------------------------------------
 
 Verify that Open MPI has been built with cuda using ``ompi_info``
+with one of the following commands.
 
 .. code-block:: sh
 
    # Use ompi_info to verify cuda support in Open MPI
-   shell$ ./ompi_info |grep "MPI extensions"
+   shell$ ompi_info | grep "MPI extensions"
           MPI extensions: affinity, cuda, pcollreq
+   shell$ ompi_info --parsable --all | grep mpi_built_with_cuda_support:value
+          mca:mpi:base:param:mpi_built_with_cuda_support:value:true
 
 /////////////////////////////////////////////////////////////////////////
 
@@ -185,19 +190,6 @@ Libfabric's API after registering the memory. If there are no
 CUDA-capable providers available, the buffers will automatically
 be copied to host buffers before being transferred through
 Libfabric's API.
-
-/////////////////////////////////////////////////////////////////////////
-
-
-How can I tell if Open MPI was built with CUDA support?
--------------------------------------------------------
-
-Use the ``ompi_info`` command:
-
-.. code-block::
-
-   shell$ ompi_info --parsable --all | grep mpi_built_with_cuda_support:value
-   mca:mpi:base:param:mpi_built_with_cuda_support:value:true
 
 /////////////////////////////////////////////////////////////////////////
 
@@ -578,6 +570,8 @@ example of using the CUDA-aware macro and run-time check.
 
    int main(int argc, char *argv[])
    {
+       MPI_Init(&argc, &argv);
+
        printf("Compile time check:\n");
    #if defined(MPIX_CUDA_AWARE_SUPPORT) && MPIX_CUDA_AWARE_SUPPORT
        printf("This MPI library has CUDA-aware support.\n", MPIX_CUDA_AWARE_SUPPORT);
@@ -587,7 +581,7 @@ example of using the CUDA-aware macro and run-time check.
        printf("This MPI library cannot determine if there is CUDA-aware support.\n");
    #endif /* MPIX_CUDA_AWARE_SUPPORT */
 
-       printf("Run time check:n");
+       printf("Run time check:\n");
    #if defined(MPIX_CUDA_AWARE_SUPPORT)
        if (1 == MPIX_Query_cuda_support()) {
            printf("This MPI library has CUDA-aware support.\n");
@@ -597,6 +591,8 @@ example of using the CUDA-aware macro and run-time check.
    #else /* !defined(MPIX_CUDA_AWARE_SUPPORT) */
        printf("This MPI library cannot determine if there is CUDA-aware support.\n");
    #endif /* MPIX_CUDA_AWARE_SUPPORT */
+
+       MPI_Finalize();
 
        return 0;
    }
